@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine  # Usamos la versión Alpine para una imagen más ligera
+    ports:
+      - "80:80"   # Puerto para HTTP
+      - "443:443" # Puerto para HTTPS
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d  # Configuración de Nginx
+      - ./nginx/ssl:/etc/nginx/ssl        # Certificados SSL
+      - ./www:/var/www                    # Archivos web
+    depends_on:
+      - php
+      - dotnet
+    networks:
+      - frontend  # Red para tráfico externo
+      - backend   # Red para comunicación interna
+
+  php:
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    volumes:
+      - ./www:/var/www  # Compartir archivos web con Nginx
+    environment:
+      - REDIS_HOST=redis  # Configuración para conectar con Redis
+    depends_on:
+      - redis
+    networks:
+      - backend  # Solo necesita acceso a la red interna
+
+  dotnet:
+    build:
+      context: ./dotnet
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:5000  # Configuración del servidor Kestrel
+      - REDIS_HOST=redis               # Configuración para conectar con Redis
+    depends_on:
+      - redis
+    networks:
+      - backend  # Solo necesita acceso a la red interna
+
+  redis:
+    image: redis:alpine  # Versión Alpine para una imagen más ligera
+    volumes:
+      - redis_data:/data  # Persistencia de datos de Redis
+    networks:
+      - backend  # Solo necesita acceso a la red interna
+
+networks:
+  frontend:  # Red para tráfico externo
+  backend:   # Red interna aislada
+
+volumes:
+  redis_data:  # Volumen para persistir datos de Redis
